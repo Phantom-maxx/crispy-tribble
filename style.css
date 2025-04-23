@@ -1,153 +1,50 @@
-:root {
-    --primary-color: #6c63ff;
-    --secondary-color: #333;
-    --background-color: #f4f4f9;
-    --button-hover: #5a54e4;
-    --dark-bg: #1e1e1e;
-    --dark-text: #f1f1f1;
-    --dark-button: #3b3b3b;
-    --dark-hover: #575757;
-}
 
-* {
-    box-sizing: border-box;
-}
+const resultDisplay = document.getElementById('result');
+const inputField = document.getElementById('input');
+const historyList = document.getElementById('historyList');
+const historyArea = document.getElementById('historyArea');
+let lastInputWasResult = false;
+let recognition;
 
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    text-align: center;
-    padding: 20px;
-    background-color: var(--background-color);
-    color: var(--secondary-color);
-    transition: background 0.3s ease, color 0.3s ease;
+window.onload = () => inputField.focus();
+function append(value) {
+    if (lastInputWasResult && !isNaN(parseFloat(value))) clearInput();
+    inputField.value += value; lastInputWasResult = false;
 }
-
-body.dark {
-    background-color: var(--dark-bg);
-    color: var(--dark-text);
+function clearInput() { inputField.value = ""; resultDisplay.textContent = "Result: "; lastInputWasResult = false; }
+function backspace() { inputField.value = inputField.value.slice(0, -1); }
+function calculate() {
+    try {
+        const expression = inputField.value;
+        const result = Function("'use strict'; return (" + expression + ")")();
+        resultDisplay.textContent = `Result: ${result}`;
+        speakResult(result); addToHistory(expression, result); lastInputWasResult = true;
+    } catch { resultDisplay.textContent = 'Error: Invalid Expression'; speakResult("Error, invalid expression"); }
 }
-
-.ad-container {
-    text-align: center;
-    background: #f4f4f4;
-    padding: 10px;
-    border: 1px dashed #ccc;
-    border-radius: 8px;
-    margin: 10px;
+function addToHistory(expr, result) {
+    const li = document.createElement('li'); li.textContent = `${expr} = ${result}`;
+    historyList.prepend(li); if (historyList.children.length > 10) historyList.removeChild(historyList.lastChild);
 }
-
-body.dark .ad-container {
-    background: var(--dark-hover);
-    border-color: var(--dark-hover);
-}
-
-.menu {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    padding: 10px;
-    border-radius: 8px;
-    cursor: pointer;
-}
-
-.menu-panel {
-    display: none;
-    position: absolute;
-    top: 60px;
-    right: 20px;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-    padding: 10px;
-    min-width: 150px;
-    z-index: 100;
-}
-
-.menu-panel.active {
-    display: block;
-}
-
-body.dark .menu-panel {
-    background: var(--dark-button);
-    color: var(--dark-text);
-}
-
-.calculator {
-    max-width: 400px;
-    margin: 0 auto;
-    background: #fff;
-    padding: 20px;
-    border-radius: 15px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-    transition: background 0.3s ease;
-}
-
-body.dark .calculator {
-    background: var(--dark-button);
-}
-
-.result {
-    font-size: 24px;
-    margin-bottom: 10px;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background: #f9f9f9;
-    min-height: 30px;
-    transition: background 0.3s ease;
-}
-
-body.dark .result {
-    background: var(--dark-hover);
-    border-color: var(--dark-hover);
-}
-
-.buttons {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-bottom: 10px;
-}
-
-button {
-    font-size: 20px;
-    padding: 15px;
-    border: none;
-    border-radius: 8px;
-    background-color: var(--primary-color);
-    color: white;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-button:hover,
-button:focus {
-    background-color: var(--button-hover);
-    outline: none;
-}
-
-.controls {
-    margin-top: 10px;
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-}
-
-#historyArea {
-    display: none;
-    text-align: left;
-    margin-top: 20px;
-}
-
-#historyArea.active {
-    display: block;
-}
-
-@media (max-width: 500px) {
-    .buttons {
-        grid-template-columns: repeat(3, 1fr);
+function toggleDarkMode() { document.body.classList.toggle('dark'); }
+function toggleHistory() { historyArea.classList.toggle('active'); }
+function toggleMenu() { document.getElementById('menuPanel').classList.toggle('active'); }
+function startVoiceInput() {
+    if (!('webkitSpeechRecognition' in window)) { alert('Speech recognition not supported.'); return; }
+    if (!recognition) {
+        recognition = new webkitSpeechRecognition(); recognition.lang = 'en-US';
+        recognition.interimResults = false; recognition.maxAlternatives = 1;
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            inputField.value = transcript; resultDisplay.textContent = `Heard: ${transcript}`;
+            setTimeout(calculate, 500);
+        };
+        recognition.onerror = (event) => { alert('Speech recognition error: ' + event.error); };
     }
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance('Listening...'));
+    recognition.start();
 }
+function speakResult(result) {
+    const synth = window.speechSynthesis;
+    synth.speak(new SpeechSynthesisUtterance(`The result is ${result}`));
+}
+document.addEventListener('keydown', (event) => { if (event.key === "Enter") calculate(); });
